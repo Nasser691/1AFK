@@ -26,7 +26,8 @@ client.on('ready', async () => {
     return;
   }
 
-  setInterval(async () => {
+  // تأخير دخول الروم لمدة دقيقة بعد بدء البوت
+  setTimeout(async () => {
     try {
       const channel = await client.channels.fetch(channelId);
       if (!channel) {
@@ -34,6 +35,7 @@ client.on('ready', async () => {
         return;
       }
 
+      // انضمام البوت إلى الروم بعد التأخير
       joinVoiceChannel({
         channelId: channel.id,
         guildId: guildId,
@@ -41,10 +43,12 @@ client.on('ready', async () => {
         selfDeaf: true,
         adapterCreator: channel.guild.voiceAdapterCreator,
       });
+      console.log('تم دخول الروم بعد دقيقة.');
+
     } catch (error) {
       console.error('Error joining voice channel:', error.message);
     }
-  }, 1000); // تحديث كل ثانية
+  }, 60000); // تأخير لمدة 60 ثانية (دقيقة واحدة)
 });
 
 client.login(process.env.TOKEN);
