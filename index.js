@@ -1,5 +1,5 @@
 require('dotenv').config(); // لتحميل المتغيرات من ملف .env
-const { Client } = require('discord.js-selfbot-v13');
+const { Client, Intents } = require('discord.js-selfbot-v13'); // أضف Intents هنا
 const { joinVoiceChannel, VoiceConnectionStatus } = require('@discordjs/voice');
 const express = require('express'); // <-- إضافة Express
 const app = express();
@@ -13,23 +13,21 @@ app.listen(port, () => {
   console.log(`Express server running on port ${port}`);
 });
 
-const client = new Client();
+const client = new Client({ intents: [Intents.FLAGS.GUILDS] }); // إضافة الIntents
 
-let connection; // لتخزين الاتصال بالروم
+let isInVoiceChannel = false; // متغير للتأكد من حالة البوت في الروم
 
 client.on('ready', async () => {
   console.log(`${client.user.username} is ready!`);
+});
+
+client.on('messageCreate', async (message) => {
+  if (message.author.id !== client.user.id) return; // تأكد من أن الرسالة من البوت نفسه
 
   const channelId = process.env.CHANNEL_ID;
   const guildId = process.env.GUILD_ID;
 
-  if (!channelId || !guildId) {
-    console.error('Missing CHANNEL_ID or GUILD_ID in .env file.');
-    return;
-  }
-
-  // دالة لدخول الروم
-  const joinChannel = async () => {
+  if (message.content.toLowerCase() === '!join' && !isInVoiceChannel) {
     try {
       const channel = await client.channels.fetch(channelId);
       if (!channel) {
@@ -37,7 +35,8 @@ client.on('ready', async () => {
         return;
       }
 
-      connection = joinVoiceChannel({
+      // انضمام البوت إلى الروم فقط إذا لم يكن فيه
+      joinVoiceChannel({
         channelId: channel.id,
         guildId: guildId,
         selfMute: true,
@@ -45,35 +44,23 @@ client.on('ready', async () => {
         adapterCreator: channel.guild.voiceAdapterCreator,
       });
 
-      connection.on(VoiceConnectionStatus.Disconnected, () => {
-        console.log('تم فصل الاتصال من الروم');
-        connection = null; // إعادة تعيين الاتصال
-      });
-
-      console.log('تم دخول البوت إلى الروم');
+      isInVoiceChannel = true; // تحديث الحالة
+      message.reply('تم دخول الروم!');
     } catch (error) {
       console.error('Error joining voice channel:', error.message);
     }
-  };
-
-  // دالة للخروج من الروم
-  const leaveChannel = () => {
+  } else if (message.content.toLowerCase() === '!leave' && isInVoiceChannel) {
+    const connection = client.voice.connections.get(guildId);
     if (connection) {
-      connection.disconnect(); // فصل الاتصال
-      console.log('تم خروج البوت من الروم');
+      connection.disconnect();
+      isInVoiceChannel = false; // تحديث الحالة
+      message.reply('تم الخروج من الروم!');
     } else {
-      console.log('البوت ليس في الروم.');
+      message.reply('البوت ليس في الروم!');
     }
-  };
-
-  // أوامر للتحكم في دخول وخروج البوت من الروم
-  client.on('message', async (message) => {
-    if (message.content === '!join') {
-      await joinChannel(); // دخول الروم عند كتابة !join
-    } else if (message.content === '!leave') {
-      leaveChannel(); // خروج البوت عند كتابة !leave
-    }
-  });
+  } else {
+    message.reply('الأمر غير صالح أو البوت في الروم بالفعل!');
+  }
 });
 
 client.login(process.env.TOKEN);
