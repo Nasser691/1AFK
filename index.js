@@ -3,9 +3,7 @@ const { Client } = require('discord.js-selfbot-v13');
 const { joinVoiceChannel, getVoiceConnection } = require('@discordjs/voice');
 const express = require('express');
 const app = express();
-
 const port = process.env.PORT || 3000;
-const client = new Client();
 
 app.get('/', (req, res) => {
   res.send('Bot is running!');
@@ -14,52 +12,49 @@ app.listen(port, () => {
   console.log(`Express server running on port ${port}`);
 });
 
-client.on('ready', () => {
-  console.log(`${client.user.username} is ready!`);
-});
+const client = new Client();
 
-client.on('messageCreate', async (message) => {
-  if (message.author.id !== client.user.id) return;
+client.on('ready', async () => {
+  console.log(`${client.user.username} is ready!`);
 
   const channelId = process.env.CHANNEL_ID;
   const guildId = process.env.GUILD_ID;
 
   if (!channelId || !guildId) {
-    console.error('⚠️ تأكد من .env');
+    console.error('Missing CHANNEL_ID or GUILD_ID in .env file.');
     return;
   }
 
-  const connection = getVoiceConnection(guildId);
+  // كل دقيقة نفحص إذا داخل الروم ولا لا
+  setInterval(async () => {
+    try {
+      const connection = getVoiceConnection(guildId);
 
-  if (message.content === '!join') {
-    if (connection) {
-      message.channel.send('❌ البوت داخل الروم فعليًا!');
-    } else {
-      try {
-        const channel = await client.channels.fetch(channelId);
-        joinVoiceChannel({
-          channelId: channel.id,
-          guildId: guildId,
-          selfMute: true,
-          selfDeaf: true,
-          adapterCreator: channel.guild.voiceAdapterCreator,
-        });
-        message.channel.send('✅ تم دخول الروم بنجاح');
-      } catch (err) {
-        console.error(err);
-        message.channel.send('❌ فشل في دخول الروم');
+      if (connection) {
+        // إذا البوت متصل بالفعل، لا تسوي شيء
+        console.log('الحساب متصل بالفعل في الروم');
+        return;
       }
-    }
-  }
 
-  if (message.content === '!leave') {
-    if (connection) {
-      connection.destroy();
-      message.channel.send('✅ تم الخروج من الروم');
-    } else {
-      message.channel.send('❌ البوت ليس في أي روم!');
+      const channel = await client.channels.fetch(channelId);
+      if (!channel) {
+        console.error('Channel not found.');
+        return;
+      }
+
+      joinVoiceChannel({
+        channelId: channel.id,
+        guildId: guildId,
+        selfMute: true,
+        selfDeaf: true,
+        adapterCreator: channel.guild.voiceAdapterCreator,
+      });
+
+      console.log('✅ تم إدخال الحساب إلى الروم');
+    } catch (error) {
+      console.error('Error joining voice channel:', error.message);
     }
-  }
+  }, 60000); // كل 60 ثانية
 });
 
 client.login(process.env.TOKEN);
