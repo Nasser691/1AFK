@@ -26,8 +26,29 @@ client.on('ready', async () => {
     return;
   }
 
-  // تأخير دخول الروم لمدة دقيقة بعد بدء البوت
-  setTimeout(async () => {
+  // التحقق من دخول الحساب الشخصي أولًا
+  const checkIfInVoiceChannel = async () => {
+    try {
+      const channel = await client.channels.fetch(channelId);
+      if (!channel) {
+        console.error('Channel not found.');
+        return false;
+      }
+
+      const member = channel.guild.members.cache.get(client.user.id);
+      if (member && member.voice.channel) {
+        console.log('البوت في الروم الآن');
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error checking voice channel:', error.message);
+      return false;
+    }
+  };
+
+  // التأخير بين دخول البوت أو الحساب الشخصي
+  const joinChannel = async () => {
     try {
       const channel = await client.channels.fetch(channelId);
       if (!channel) {
@@ -35,7 +56,7 @@ client.on('ready', async () => {
         return;
       }
 
-      // انضمام البوت إلى الروم بعد التأخير
+      // انضمام البوت إلى الروم
       joinVoiceChannel({
         channelId: channel.id,
         guildId: guildId,
@@ -43,12 +64,22 @@ client.on('ready', async () => {
         selfDeaf: true,
         adapterCreator: channel.guild.voiceAdapterCreator,
       });
-      console.log('تم دخول الروم بعد دقيقة.');
-
+      console.log('تم دخول البوت إلى الروم');
     } catch (error) {
       console.error('Error joining voice channel:', error.message);
     }
-  }, 60000); // تأخير لمدة 60 ثانية (دقيقة واحدة)
+  };
+
+  // إذا كنت في الروم، انتظر دقيقة ثم يدخل البوت
+  setTimeout(async () => {
+    if (await checkIfInVoiceChannel()) {
+      console.log('انت في الروم الآن، سيتم تأخير دخول البوت لمدة دقيقة.');
+      setTimeout(joinChannel, 60000); // تأخير لمدة 60 ثانية (دقيقة واحدة) بعد دخولك
+    } else {
+      console.log('البوت ليس في الروم، سيتم دخول البوت على الفور');
+      joinChannel(); // دخول البوت مباشرة
+    }
+  }, 1000); // هذا التأخير الأول قبل أن يبدأ التحقق
 });
 
 client.login(process.env.TOKEN);
