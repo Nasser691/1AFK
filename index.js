@@ -5,7 +5,6 @@ const express = require('express');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Express سيرفر وهمي لـ Render
 app.get('/', (req, res) => {
   res.send('Bot is running!');
 });
@@ -20,17 +19,13 @@ client.on('ready', async () => {
 });
 
 client.on('messageCreate', async (message) => {
-  if (message.author.id !== client.user.id) return; // بس يستقبل أوامر منك
+  if (message.author.id !== client.user.id) return;
 
   const content = message.content.toLowerCase();
   const channelId = process.env.CHANNEL_ID;
   const guildId = process.env.GUILD_ID;
 
-  if (!channelId || !guildId) {
-    console.error('Missing CHANNEL_ID or GUILD_ID in .env file.');
-    return;
-  }
-
+  // !join: يدخل روم من .env
   if (content === '!join') {
     const connection = getVoiceConnection(guildId);
     if (connection && connection.state.status !== VoiceConnectionStatus.Disconnected) {
@@ -61,6 +56,39 @@ client.on('messageCreate', async (message) => {
     }
   }
 
+  // !afk: يدخل نفس الروم اللي أنت فيه
+  if (content === '!afk') {
+    try {
+      let foundChannel = null;
+      client.guilds.cache.forEach(guild => {
+        const me = guild.members.cache.get(client.user.id);
+        if (me && me.voice.channel) {
+          foundChannel = me.voice.channel;
+        }
+      });
+
+      if (!foundChannel) {
+        message.channel.send('❌ يجب أن تكون متصلاً بروم صوتي أولاً.');
+        return;
+      }
+
+      joinVoiceChannel({
+        channelId: foundChannel.id,
+        guildId: foundChannel.guild.id,
+        selfMute: true,
+        selfDeaf: true,
+        adapterCreator: foundChannel.guild.voiceAdapterCreator,
+      });
+
+      message.channel.send(`✅ أنت الآن في وضع AFK في الروم: ${foundChannel.name}`);
+      console.log(`✅ دخل الروم: ${foundChannel.name}`);
+    } catch (err) {
+      console.error('❌ خطأ في أمر AFK:', err.message);
+      message.channel.send('❌ حدث خطأ أثناء محاولة تنفيذ أمر AFK.');
+    }
+  }
+
+  // !leave: يخرج من الروم
   if (content === '!leave') {
     const connection = getVoiceConnection(guildId);
     if (!connection) {
